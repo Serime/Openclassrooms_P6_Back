@@ -1,0 +1,40 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: workshop-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${DB_USER:-workshop}
+      MONGO_INITDB_ROOT_PASSWORD: ${DB_PASSWORD:-workshop}
+      MONGO_INITDB_DATABASE: ${DB_NAME:-workshopsdb}
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: workshop-organizer-api:latest
+    container_name: workshop-api
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      DB_USER: ${DB_USER:-workshop}
+      DB_PASSWORD: ${DB_PASSWORD:-workshop}
+      MONGO_URI: mongodb://${DB_USER:-workshop}:${DB_PASSWORD:-workshop}@mongodb:27017/${DB_NAME:-workshopsdb}?authSource=admin
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+    ports:
+      - "3000:3000"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
